@@ -1,0 +1,622 @@
+---
+title: "Appendix-A"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exploratory Data Analysis
+
+
+## Environment Setup and Data import
+
+### Load necessary Libraries
+```{r}
+library(readxl)
+library(ggplot2)
+library(caret)
+library(corrplot)
+library(e1071)
+library(MASS)
+library(dplyr)
+library(car)
+library(blorr)
+library(class)
+library(ROCR)
+library(naivebayes)
+library(lmtest)
+library(pscl)
+```
+
+### Set up working directory
+```{r}
+
+setwd("E:\\Great Learning_BABI\\05_Predictive Modelling\\Project-Predictive Modelling")
+
+```
+
+### Import Dataset
+```{r}
+
+telecom = read_excel("Cellphone.xlsx", sheet = "Data")
+
+```
+
+## Variable Identification
+```{r}
+#Dimensions of the dataset
+dim(telecom)
+
+#Top and bottom of the dataset
+head(telecom)
+tail(telecom)
+
+#Names of the dataset
+names(telecom)
+
+#str of the dataset
+str(telecom)
+
+#Converting to Dataframe
+telecom = as.data.frame(telecom)
+
+#Summary of the dataset
+summary(telecom)
+
+#Missing values 
+anyNA(telecom)
+
+#Converting Variables Churn, Contract Renewal & Data Plan to factor variables
+telecom$Churn = factor(telecom$Churn)
+telecom$ContractRenewal = factor(telecom$ContractRenewal)
+telecom$DataPlan = factor(telecom$DataPlan)
+
+#Percentage churned customers
+sum(telecom$Churn==1)/nrow(telecom) * 100
+
+```
+
+## Uni-variate Analysis
+```{r}
+
+#AccountWeeks
+
+summary(telecom$AccountWeeks)
+
+boxplot(telecom$AccountWeeks, main = "Boxplot of AccountWeeks", horizontal = T, xlab = "Account Weeks")
+text(fivenum(x = telecom$AccountWeeks), labels = fivenum(x = telecom$AccountWeeks), y = 1.25)
+
+##Outlier values
+q1 = quantile(telecom$AccountWeeks, 0.25)
+q3 = quantile(telecom$AccountWeeks, 0.75)
+
+IQR = q3 - q1
+IQR
+
+lwr = q1 - 1.5 * IQR
+upr = q3 + 1.5 * IQR
+
+##Observations above 206.5 are considered outliers. 
+
+###Checking average AccountWeeks of customers churned and stayed
+
+telecom %>% group_by(Churn) %>% summarise(Count = n(), Percentage.Count =round(Count/nrow(telecom)*100,2),Avg.AccountWeeks = round(mean(AccountWeeks),2))
+
+
+#ContractRenewal
+
+table(telecom$ContractRenewal)
+
+ggplot(telecom, aes(x = ContractRenewal)) + geom_bar(fill = "grey") + labs(title = "Contract Renewal") + geom_text(stat = 'count', aes(label = ..count..), vjust = -0.25)
+
+##Churn Percentage with contract renewal
+
+telecom %>% group_by(ContractRenewal, Churn) %>% summarise(Count = n(), Percentage.Churn = round(Count/nrow(telecom) * 100 ,2))
+
+
+#DataPlan
+
+table(telecom$DataPlan)
+
+ggplot(telecom, aes(x = DataPlan)) + geom_bar(fill = "grey") + labs(title = "Data Plan") + geom_text(stat = 'count', aes(label = ..count..), vjust = -0.25)
+
+##Churn percentage with Data plan
+
+telecom %>% group_by(DataPlan, Churn) %>% summarise(Count = n(), Percentage.Churn = round(Count/nrow(telecom) * 100,2))
+
+#DataUsage
+
+summary(telecom$DataUsage)
+
+boxplot(telecom$DataUsage, main = "Boxplot of Data Usage", horizontal = T, xlab = "Data Usage")
+text(fivenum(x = telecom$DataUsage), labels = fivenum(x = telecom$DataUsage), y = 1.25)
+
+##Outlier values
+q1 = quantile(telecom$DataUsage, 0.25)
+q3 = quantile(telecom$DataUsage, 0.75)
+
+IQR = q3 - q1
+IQR
+
+lwr = q1 - 1.5 * IQR
+upr = q3 + 1.5 * IQR
+
+##Observations above 4.45 are considered outliers. 
+
+###Checking average Data usage of customers churned 
+
+telecom %>% group_by(Churn) %>% summarise(Count = n(), Percentage.Count =round(Count/nrow(telecom)*100,2),Avg.Data.Usage = round(mean(DataUsage),2))
+
+
+#CustServCalls
+
+summary(telecom$CustServCalls)
+
+boxplot(telecom$CustServCalls, main = "Boxplot of Customer Service Calls", horizontal = T, xlab = "No. of Customer Service Calls")
+text(fivenum(x = telecom$CustServCalls), labels = fivenum(x = telecom$CustServCalls), y = 1.25)
+
+##Outlier values
+q1 = quantile(telecom$CustServCalls, 0.25)
+q3 = quantile(telecom$CustServCalls, 0.75)
+
+IQR = q3 - q1
+IQR
+
+lwr = q1 - 1.5 * IQR
+upr = q3 + 1.5 * IQR
+
+##Observations above 3.5 are considered outliers. 
+
+###Checking Customer Service calls of customers churned 
+
+telecom %>% group_by(Churn) %>% summarise(Count = n(), Percentage.Count=round(Count/nrow(telecom)*100,2),Avg.Customer.Calls = mean(CustServCalls))
+
+#DayMins
+
+summary(telecom$DayMins)
+
+boxplot(telecom$DayMins, main = "Boxplot of Average Day Time Minutes", horizontal = T, xlab = "Average Day Time Minutes")
+text(fivenum(x = telecom$DayMins), labels = fivenum(x = telecom$DayMins), y = 1.25)
+
+##Outlier values
+q1 = quantile(telecom$DayMins, 0.25)
+q3 = quantile(telecom$DayMins, 0.75)
+
+IQR = q3 - q1
+IQR
+
+lwr = q1 - 1.5 * IQR
+upr = q3 + 1.5 * IQR
+
+##Observations below 34.6 & above 325  are considered outliers. 
+
+###Checking Average DayMins of customers churned 
+
+telecom %>% group_by(Churn) %>% summarise(Count = n(), Percentage.Count =round(Count/nrow(telecom)*100,2),Avg.Day.Mins = mean(DayMins))
+
+
+#DayCalls
+
+summary(telecom$DayCalls)
+
+boxplot(telecom$DayCalls, main = "Boxplot of Average Day Time Calls", horizontal = T, xlab = "Average Day Time Calls")
+text(fivenum(x = telecom$DayCalls), labels = fivenum(x = telecom$DayCalls), y = 1.25)
+
+##Outlier values
+q1 = quantile(telecom$DayCalls, 0.25)
+q3 = quantile(telecom$DayCalls, 0.75)
+
+IQR = q3 - q1
+IQR
+
+lwr = q1 - 1.5 * IQR
+upr = q3 + 1.5 * IQR
+
+##Observations below 46.5 & above 154  are considered outliers. 
+
+###Checking Average Daycalls of customers churned 
+
+telecom %>% group_by(Churn) %>% summarise(Count = n(), Percentage.Count =round(Count/nrow(telecom)*100,2),Avg.Day.Calls = mean(DayCalls))
+
+#MonthlyCharge
+
+summary(telecom$MonthlyCharge)
+
+boxplot(telecom$MonthlyCharge, main = "Boxplot of Average Monthly Bill", horizontal = T, xlab = "Average Monthly Bill")
+text(fivenum(x = telecom$MonthlyCharge), labels = fivenum(x = telecom$MonthlyCharge), y = 1.25)
+
+##Outlier values
+q1 = quantile(telecom$MonthlyCharge, 0.25)
+q3 = quantile(telecom$MonthlyCharge, 0.75)
+
+IQR = q3 - q1
+IQR
+
+lwr = q1 - 1.5 * IQR
+upr = q3 + 1.5 * IQR
+
+##Observations below above 98  are considered outliers. 
+
+###Checking Average MonthlyCharge of customers churned 
+
+telecom %>% group_by(Churn) %>% summarise(Count = n(), Percentage.Count =round(Count/nrow(telecom)*100,2),Avg.MonthlyCharge = mean(MonthlyCharge))
+
+#OverageFee
+
+summary(telecom$OverageFee)
+
+boxplot(telecom$OverageFee, main = "Boxplot of Overage Fee", horizontal = T, xlab = "Overage Fee")
+text(fivenum(x = telecom$OverageFee), labels = fivenum(x = telecom$OverageFee), y = 1.25)
+
+##Outlier values
+q1 = quantile(telecom$OverageFee, 0.25)
+q3 = quantile(telecom$OverageFee, 0.75)
+
+IQR = q3 - q1
+IQR
+
+lwr = q1 - 1.5 * IQR
+upr = q3 + 1.5 * IQR
+
+##Observations below 3.17 & above 16.9  are considered outliers. 
+
+###Checking Average OverageFee of customers churned 
+
+telecom %>% group_by(Churn) %>% summarise(Count = n(), Percentage.Count =round(Count/nrow(telecom)*100,2),Avg.OverageFee = mean(OverageFee))
+
+#RoamMins
+
+summary(telecom$RoamMins)
+
+boxplot(telecom$RoamMins, main = "Boxplot of RoamMins", horizontal = T, xlab = "RoamMins")
+text(fivenum(x = telecom$RoamMins), labels = fivenum(x = telecom$RoamMins), y = 1.25)
+
+##Outlier values
+q1 = quantile(telecom$RoamMins, 0.25)
+q3 = quantile(telecom$RoamMins, 0.75)
+
+IQR = q3 - q1
+IQR
+
+lwr = q1 - 1.5 * IQR
+upr = q3 + 1.5 * IQR
+
+##Observations below 3.1 & above 17.5  are considered outliers. 
+
+###Checking Average RoamMins of customers churned 
+
+telecom %>% group_by(Churn) %>% summarise(Count = n(), Percentage.Count =round(Count/nrow(telecom)*100,2),Avg.RoamMins = mean(RoamMins))
+
+
+```
+
+## Bi-variate Analysis
+```{r}
+
+#Isolating numeric values and checking relationship between each variable
+
+#[1] "AccountWeeks"  [2] "DataUsage"    [3] "CustServCalls" [4] "DayMins" [5] "DayCalls"  [6] "MonthlyCharge" [7] "OverageFee"  [8] "RoamMins"  
+
+
+num = sapply(X = telecom, is.numeric)
+telecom.num = telecom[,num] 
+names(telecom.num)
+
+
+print(round(cor(telecom.num),2))
+
+##Observations:
+#DataUsage is highly positively correlated with MonthlyCharge. A small positive relationship exists with variable RoamMins as well.
+#There is a positive relationship between variables DayMins & MonthlyCharge.
+#A small relationship exists between MonthlyCharge, OverageFee & RoamMins.
+
+#Isolating Categorical Variables
+#[1] Churn  [2] ContractRenewal [3] DataPlan
+
+cat = sapply(X = telecom, is.factor)
+telecom.cat = telecom[,cat]
+names(telecom.cat)
+
+#Barplots of categorical Variables
+par(mfrow = c(2,2))
+for(i in names(telecom.cat)){
+  print(i)
+  print(table(telecom.cat$Churn, telecom.cat[[i]]))
+  barplot(table(telecom.cat$Churn, telecom.cat[[i]]), main = names(telecom.cat[i]), col = c("grey","red"))
+}
+
+
+#Chisquare test to check correlation among categorical Variables
+
+chisq.test(telecom$Churn, telecom$ContractRenewal)
+chisq.test(telecom$Churn, telecom$DataPlan)
+chisq.test(telecom$DataPlan, telecom$ContractRenewal)
+
+
+##Observations:
+#Variable churn is dependent on contractRenewal & DataPlan
+#Variable DataPlan and ContractRenewal are independent
+
+```
+
+## Multicollinearity Check
+```{r}
+
+#Plotting correlation plot
+
+corrplot(corr = cor(telecom.num), method = "number")
+
+#Building an initial logistic model using all variables
+
+mod = glm(Churn~., data = telecom, family = "binomial")
+summary(mod)
+
+#Checking for mulitcollinearity
+vif(mod)
+
+##Variables DataPlan, DataUsage, DayMins, MonthlyCharge, OverageFee are all having very high VIF values indicating there are highly correlated independent variables.
+
+#Treating Multicollinearity using step-wise algorithm
+
+blr_step_aic_forward(model = mod, details = F)
+blr_step_aic_backward(model = mod, details = F)
+blr_step_aic_both(model = mod, details = F)
+
+#Building new model using step-aic_both method
+mod_both = glm(Churn~ContractRenewal+CustServCalls+DayMins+DataPlan+OverageFee+RoamMins, data = telecom, family = "binomial")
+summary(mod_both)
+
+vif(mod_both)
+
+```
+
+## Logistic Regression
+```{r}
+#Split data into test and train datasets
+
+set.seed(123)
+index = sample(1:nrow(telecom), nrow(telecom) * 0.70)
+trainLR = telecom[index,]
+testLR  = telecom[-index,]
+
+#Checking split consistency
+sum(as.integer(as.character(telecom$Churn)))/nrow(telecom)
+sum(as.integer(as.character(trainLR$Churn)))/nrow(trainLR)
+sum(as.integer(as.character(testLR$Churn)))/nrow(testLR)
+
+
+#Building a Final Logistic Regression Model using variables from the Step Wise Both algorithm
+
+LR.Model = glm(Churn ~ ContractRenewal + CustServCalls + DayMins + DataPlan + OverageFee + RoamMins, 
+                  data = trainLR, family = "binomial")
+
+summary(LR.Model)
+
+vif(LR.Model)
+
+#Loglikelihood test : To ensure if logit model is valid or not
+
+library(lmtest)
+lrtest(LR.Model)
+
+#To get the logit R2 of goodness
+
+library(pscl)
+pR2(LR.Model) #MCFadden score is 0.20 indicating goodness of fit is moderately robust
+
+#Getting the Odds and probability values
+
+odds = exp(coef(LR.Model))
+odds
+
+prob = odds/(1+odds)
+prob
+
+relativeImportance=(odds[-1]/sum(odds[-1]))*100
+relativeImportance[order(relativeImportance)]
+
+#Performance on train dataset
+predTrain = predict(object = LR.Model, newdata = trainLR, type = "response")
+
+table(trainLR$Churn, predTrain>0.5) #85.8
+(1945+59)/nrow(trainLR)
+
+table(trainLR$Churn, predTrain>0.3) #85.5
+(1897+99)/nrow(trainLR)
+
+
+#Performance on test dataset
+
+predTest= predict(object = LR.Model, newdata = testLR, type = "response")
+
+table(testLR$Churn, predTest>0.5) #86.5
+(844+21)/nrow(testLR)
+
+table(testLR$Churn, predTest>0.3) #86.4
+(804+60)/nrow(testLR)
+
+```
+
+##KNN Model
+```{r}
+
+#Normalizing the dataset
+norm = function(x) { (x- min(x))/(max(x) - min(x)) }
+norm.data = as.data.frame(lapply(telecom[,-c(1,3:4)], norm))
+
+usable.data = cbind(telecom[,c(1,3:4)], norm.data)
+
+#Splitting dataset into train & test
+set.seed(100)
+index = sample(1:nrow(usable.data), 0.7 * nrow(usable.data))
+trainKNN = usable.data[index,]
+testKNN  = usable.data[-index,]
+
+#Removing factor variable from train & test datasets
+trainKNN1 = trainKNN[-1]
+testKNN1 = testKNN[-1]
+
+
+#Storing target variable for testing and training data
+trainKNN.Label = trainKNN$Churn
+testKNN.Label = testKNN$Churn
+
+#KNN Model
+predtest.KNN3= knn(train = trainKNN1, test = testKNN1, cl = trainKNN.Label, k = 3, prob = T)
+Knn.tab = table(predtest.KNN3, testKNN.Label)
+Knn.tab
+1-sum(diag(Knn.tab))/sum(Knn.tab)
+
+predtest.KNN5= knn(train = trainKNN1, test = testKNN1, cl = trainKNN.Label, k = 5, prob = T)
+Knn.tab = table(predtest.KNN5, testKNN.Label)
+Knn.tab
+1-sum(diag(Knn.tab))/sum(Knn.tab)
+
+predtest.KNN7= knn(train = trainKNN1, test = testKNN1, cl = trainKNN.Label, k = 7, prob = T)
+Knn.tab = table(predtest.KNN7, testKNN.Label)
+Knn.tab
+1-sum(diag(Knn.tab))/sum(Knn.tab)
+
+#Error when K = 3 is 0.112 : 88.8%
+#Error when K = 5 is 0.099 : 90.1%
+#Error when K = 7 is 0.103 : 89.7%
+
+
+```
+
+
+
+##Naive Bayes
+```{r}
+
+#Splitting data into train & test
+set.seed(200)
+index = sample(1:nrow(telecom), nrow(telecom) * 0.7)
+trainNB = telecom[index,]
+testNB = telecom[-index,]
+
+#building naive bayes model
+naive_telecom = naive_bayes(Churn~., data = trainNB, usekernel = T)
+
+p_prob = predict(object = naive_telecom, newdata = trainNB, type = "prob")
+
+#print(round(p_prob,3))
+
+plot(naive_telecom)
+
+# Confusion Matrix - train data
+p_class <- predict(naive_telecom, trainNB, type="class")
+
+tab1 <- table(p_class,trainNB$Churn)
+1 - sum(diag(tab1)) / sum(tab1)   ## Train Error :  0.096
+
+# Confusion Matrix - test data
+p <- predict(naive_telecom, testNB,type="class")
+tab2 <- table(p,testNB$Churn)
+1 - sum(diag(tab2)) / sum(tab2) # Test Error : 0.101
+
+
+```
+
+## Confusion matrix for all Models
+```{r}
+
+#Confusion matrix- Logistic Regression 
+#Training Data 
+
+PredtrainLR = as.factor(ifelse(predTrain>0.5,1,0))
+
+
+confusionMatrix(PredtrainLR,trainLR$Churn) #85.9
+
+#Testing Data
+
+PredtestLR = as.factor(ifelse(predTest>0.5,1,0))
+
+confusionMatrix(PredtestLR,testLR$Churn) #86.5
+
+
+#Confusion Matrix - KNN 
+
+confusionMatrix(predtest.KNN5, testKNN$Churn) #90.1
+
+
+#Confusion Matrix - Naive Bayes
+#Training Data
+confusionMatrix(p_class, trainNB$Churn) #90.3
+
+#Testing Data
+
+confusionMatrix(p, testNB$Churn) #89.9
+
+#Observation: Appears KNN performs slightly better
+```
+
+##Other Performance Measures for Logistic Regression
+```{r}
+
+#Training data performance measurements
+
+#KS
+K = blr_gains_table(LR.Model, data = trainLR)
+plot(K)
+
+blr_ks_chart(K, title = "KS Chart Training Data",
+             yaxis_title = " ",xaxis_title = "Cumulative Population %",
+             ks_line_color = "black")
+
+blr_decile_lift_chart(K, xaxis_title = "Decile",
+                      yaxis_title = "Decile Mean / Global Mean",
+                      title = "Decile Lift Chart",
+                      bar_color = "blue", text_size = 3.5,
+                      text_vjust = -0.3)
+
+blr_decile_capture_rate(K, xaxis_title = "Decile",
+                        yaxis_title = "Capture Rate",
+                        title = "Capture Rate by Decile",
+                        bar_color = "blue", text_size = 3.5,
+                        text_vjust =-0.3)
+
+#Gini 
+blr_gini_index(LR.Model, data = trainLR)
+
+#AUC 
+  ROCRpredTrain = prediction(predTrain, trainLR$Churn)
+auctrain = as.numeric(performance(ROCRpredTrain, "auc")@y.values) #81.6
+perftrain = performance(ROCRpredTrain, "tpr","fpr")
+plot(perftrain,lwd=3,colorize = TRUE, main = "TrainLR Roc Curve")
+
+
+#Testing data performance measurements
+
+K_test = blr_gains_table(LR.Model, data = testLR)
+
+blr_ks_chart(K_test, title = "KS Chart Testing Data",
+             yaxis_title = " ",xaxis_title = "Cumulative Population %",
+             ks_line_color = "black")
+
+blr_decile_lift_chart(K_test, xaxis_title = "Decile",
+                      yaxis_title = "Decile Mean / Global Mean",
+                      title = "Decile Lift Chart",
+                      bar_color = "blue", text_size = 3.5,
+                      text_vjust = -0.3)
+
+blr_decile_capture_rate(K_test, xaxis_title = "Decile",
+                        yaxis_title = "Capture Rate",
+                        title = "Capture Rate by Decile",
+                        bar_color = "blue", text_size = 3.5,
+                        text_vjust =-0.3)
+
+#Gini
+blr_gini_index(LR.Model, data = testLR)
+
+#Auc
+ROCRpredTest = prediction(predTest, testLR$Churn)
+auctest = as.numeric(performance(ROCRpredTest, "auc")@y.values) #81.2
+perftest = performance(ROCRpredTest, "tpr","fpr")
+plot(perftest,lwd=3,colorize = TRUE, main = "TestLR Roc Curve")
+
+```
+

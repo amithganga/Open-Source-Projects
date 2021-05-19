@@ -1,0 +1,468 @@
+---
+title: "Appendix A - Source Code"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exploratory Data Analysis
+
+
+## Environment Setup and Data import
+
+### Load necessary Libraries
+```{r}
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(caret)
+library(corrplot)
+library(ROCR)
+library(ineq)
+library(InformationValue)
+```
+
+### Set up working directory
+
+```{r}
+
+setwd("E:\\Great Learning_BABI\\04_Data Mining\\Project-Data Mining")
+
+```
+
+### Import Dataset
+```{r}
+
+Bank = read_excel("Thera Bank_dataset.xlsx", sheet = 2) 
+
+```
+
+## Variable Identification
+```{r}
+
+#Dimensions of the dataset
+dim(Bank)
+
+#Top and bottom of the dataset
+head(Bank)
+tail(Bank)
+
+#Names of the dataset
+names(Bank)
+
+#str of the dataset
+str(Bank)
+
+#Summary of the dataset
+summary(Bank)
+
+#Missing values 
+anyNA(Bank)
+
+colSums(is.na(Bank))
+
+#Variables ID and Zip code have unique values and will not be used in building models.
+
+Bank = Bank[,-c(1,5)]
+
+#Renaming columns 
+colnames(Bank) = c("Age.in.years", "Experience.in.years","Income.in.K.year","Family.members",
+                   "CCAvg","Education","Mortgage","Personal.Loan","Securities.Account", 
+                   "CD.Account","Online","CreditCard")
+
+#Converting variables Family members, Personal Loan,Securities Account, CD Account, Online & Credit card to Factor Variables
+Bank$Family.members = as.factor(Bank$Family.members)
+Bank$Personal.Loan = as.factor(Bank$Personal.Loan)
+Bank$Securities.Account = as.factor(Bank$Securities.Account)
+Bank$CD.Account = as.factor(Bank$CD.Account)
+Bank$Online = as.factor(Bank$Online)
+Bank$CreditCard = as.factor(Bank$CreditCard)
+
+#Converting Education to factor variable with ordered levels
+Bank$Education = factor(x = Bank$Education, levels = c(1,2,3), 
+                        labels = c("Undergrad","Graduate","Advanced/Professional"))
+
+
+summary(Bank)
+
+#Removing missing values since less than 10%
+
+Bank = na.omit(Bank)
+
+#Converting negative values to positive in variable Experience
+
+Bank$Experience.in.years = abs(Bank$Experience.in.years)
+
+#Total no.of responders
+sum(Bank$Personal.Loan==1)
+
+```
+
+## Uni-variate Analysis
+```{r}
+
+#Age.in.years
+
+summary(Bank$Age.in.years)
+
+boxplot(Bank$Age.in.years, horizontal = T, main = "Boxplot of Age", xlab = "Age")
+text(x = fivenum(Bank$Age.in.years), labels = fivenum(Bank$Age.in.years), y = 1.25)
+
+#Experience.in.years
+
+summary(Bank$Experience.in.years)
+
+boxplot(Bank$Experience.in.years, horizontal = T, main = "Boxplot of Experience", xlab = "Experience")
+text(x = fivenum(Bank$Experience.in.years), labels = fivenum(Bank$Experience.in.years), y = 1.25)
+
+#Income.in.k.years
+
+summary(Bank$Income.in.K.year)
+
+boxplot(Bank$Income.in.K.year, main = "Boxplot of Income", xlab = "Income", horizontal = T)
+text(x = fivenum(Bank$Income.in.K.year), labels = fivenum(Bank$Income.in.K.year), y = 1.25)
+
+##Identifying outliers
+q1 = quantile(Bank$Income.in.K.year,0.25)
+q3 = quantile(Bank$Income.in.K.year,0.75)
+IQR = q3 - q1
+
+lwr = q1 - 1.5 * (IQR)
+upr = q3 + 1.5 * (IQR)
+
+Bank %>% group_by(Personal.Loan) %>% filter(Income.in.K.year>186) %>% summarise(Count = n(), Mean.Income = mean(Income.in.K.year))
+
+#Family Members
+
+table(Bank$Family.members)
+
+ggplot(Bank, aes(x = Family.members)) + geom_bar(fill = "gray") + labs(title = "Family Members") + geom_text(stat = 'count', aes(label = ..count..), vjust = -0.25)  
+
+#CCAVg
+
+summary(Bank$CCAvg)
+
+boxplot(Bank$CCAvg, main = "Boxplot of Credit Card Average Spend", xlab = "Avg Spend", horizontal = T)
+text(x = fivenum(Bank$CCAvg), labels = fivenum(Bank$CCAvg), y = 1.25)
+
+q1 = quantile(Bank$CCAvg,0.25)
+q3 = quantile(Bank$CCAvg,0.75)
+IQR = q3 - q1
+
+lwr = q1 - 1.5 * (IQR)
+upr = q3 + 1.5 * (IQR)
+
+
+Bank %>% group_by(Personal.Loan) %>% filter(CCAvg > 5.45) %>% summarise(Count = n())
+
+#Education
+
+summary(Bank$Education)
+
+ggplot(Bank, aes(x = Education)) + geom_bar(fill = "gray") + geom_text(stat = 'count', aes(label = ..count..),vjust = -0.25) + labs(title = "Education")
+
+#Mortgage
+
+summary(Bank$Mortgage)
+
+boxplot(Bank$Mortgage, main = "Boxplot of Mortgage", xlab = "Mortgage", horizontal = T)
+text(x = fivenum(Bank$Mortgage), labels = fivenum(Bank$Mortgage), y = 1.25)
+
+q1 = quantile(Bank$Mortgage,0.25)
+q3 = quantile(Bank$Mortgage,0.75)
+IQR = q3 - q1
+
+lwr = q1 - 1.5 * (IQR)
+upr = q3 + 1.5 * (IQR)
+
+Bank %>% group_by(Personal.Loan) %>% filter(Mortgage > 252) %>% summarise(Count = n())
+
+#Securities Account
+
+summary(Bank$Securities.Account)
+
+ggplot(Bank, aes(x = Securities.Account)) + geom_bar(fill = "gray") + geom_text(stat = 'count', aes(label = ..count..),vjust = -0.25) + labs(title = "Securities Account")
+
+#CD Account
+
+summary(Bank$CD.Account)
+
+ggplot(Bank, aes(x = CD.Account)) + geom_bar(fill = "gray") + geom_text(stat = 'count', aes(label = ..count..),vjust = -0.25) + labs(title = "CD Account")
+
+
+#Online
+
+summary(Bank$Online)
+
+ggplot(Bank, aes(x = Online)) + geom_bar(fill = "gray") + geom_text(stat = 'count', aes(label = ..count..),vjust = -0.25) + labs(title = "Online")
+
+#CreditCard
+
+summary(Bank$CreditCard)
+
+ggplot(Bank, aes(x = CreditCard)) + geom_bar(fill = "gray") + geom_text(stat = 'count', aes(label = ..count..),vjust = -0.25) + labs(title = "CreditCard")
+
+
+```
+
+## Bi-variate Analysis
+
+```{r}
+
+##Isolating numeric variables and checking for correlation among continous variables
+
+#[1] Age (in years) [2] Experience (in years)    [3] Income (in K/year)        [4] CCAvg     [5] Mortgage 
+
+Bank.numeric = sapply(Bank, is.numeric)
+
+print(round(cor(Bank[Bank.numeric]),2))
+
+#Observations:
+
+#Very high positive correlation between Age & Experience - Increase in age, increases experience
+#High Positive Correlation between CCAvg & Income - Increase in income leads to increase in average credit card spending 
+
+##Chisquare test to check correlation among categorical Variables
+
+chisq.test(Bank$Family.members, Bank$Education)
+chisq.test(Bank$Family.members, Bank$Personal.Loan)
+chisq.test(Bank$Family.members, Bank$Securities.Account)
+chisq.test(Bank$Family.members, Bank$CD.Account)
+chisq.test(Bank$Family.members, Bank$Online)
+chisq.test(Bank$Family.members, Bank$CreditCard)
+chisq.test(Bank$Personal.Loan, Bank$Securities.Account)
+chisq.test(Bank$Personal.Loan, Bank$CD.Account)
+chisq.test(Bank$Personal.Loan, Bank$Online)
+chisq.test(Bank$Personal.Loan, Bank$CreditCard)
+chisq.test(Bank$Securities.Account, Bank$CD.Account)
+chisq.test(Bank$Securities.Account, Bank$Online)
+chisq.test(Bank$Securities.Account, Bank$CreditCard)
+chisq.test(Bank$CD.Account, Bank$Online)
+chisq.test(Bank$CD.Account, Bank$CreditCard)
+chisq.test(Bank$Online, Bank$CreditCard)
+
+#Summary:
+
+#Variable Family members is dependent with Education, Personal Loan, CD Account. 
+#Variables Personal Loan and CD Account are dependent 
+#Securities Account & CD Account are dependent
+#CD Account is dependent with variables Online & CreditCard
+
+```
+
+## CART Model
+```{r}
+#Splitting the dataset into train & test for development and out of sample testing respectively
+set.seed(123)
+index = sample(1:nrow(Bank), nrow(Bank) * 0.7)
+trainDT = Bank[index,]
+testDT = Bank[-index,]
+
+#Calculating the response rate on train & test
+
+sum(trainDT$Personal.Loan==1)/nrow(trainDT) 
+sum(testDT$Personal.Loan==1)/nrow(testDT)
+
+#Building a pre-pruned CART model
+tree = rpart(formula = Personal.Loan~., data = trainDT, method = "class", minbucket = 10, cp = 0)
+
+#Print Tree
+print(tree)
+
+#Plot Tree
+rpart.plot(tree)
+
+#Print CP 
+printcp(tree)
+
+#Plot CP
+plotcp(tree)
+
+#Pruning Tree
+ptree = prune(tree, cp = 0.018, "CP")
+
+#Plotting pruned tree
+rpart.plot(ptree)
+  
+#Print CP of Pruned Tree
+printcp(ptree)
+
+#Using the ptree to predict train as well as test datasets
+trainDT$Prediction = predict(object = ptree, newdata = trainDT, type = "class")
+trainDT$Pred.Score = predict(object = ptree, newdata = trainDT, type = "prob")[,"1"]
+
+testDT$Prediction = predict(object = ptree, newdata = testDT, type = "class")
+testDT$Pred.Score = predict(object = ptree, newdata = testDT, type = "prob")[,"1"]
+
+```
+
+## Random Forest Model
+```{r}
+
+#Spliting the dataset into train and test for development and out of sample testing respectively
+set.seed(100)
+index1 = sample(1:nrow(Bank), nrow(Bank) * 0.7)
+trainRF = Bank[index,]
+testRF = Bank[-index,]
+
+#Building Random Forest 
+
+Rforest = randomForest(Personal.Loan~., data = trainRF, ntree = 501, mtry = 3, nodesize = 10, importance = T)
+
+#Print 
+print(Rforest)
+
+#Plot RF to know optimum no of trees
+plot(Rforest)
+
+#Tuning RF
+set.seed(1000)
+tRforest = tuneRF(x = trainRF[-8], y = trainRF$Personal.Loan, mtryStart = 3, ntreeTry = 100, 
+                  stepFactor = 1.5, improve = 0.0001, nodesize = 10, trace = T, plot = T, 
+                  doBest = T, importance = T)
+
+                  
+#Rebuilding model using tuning parameters
+
+Rforest = randomForest(formula = Personal.Loan~., data = trainRF, ntree = 100, mtry = 9, 
+                       nodesize = 10, importance = T )
+
+
+
+##Use this tree to do the prediction on train as well as test data set
+trainRF$Prediction = predict(object = Rforest, newdata = trainRF, type = "class")
+trainRF$Pred.Score = predict(object = Rforest, newdata = trainRF, type = "prob")[,"1"]
+
+testRF$Prediction = predict(object = Rforest, newdata = testRF, type = "class")
+testRF$Pred.Score = predict(object = Rforest, newdata = testRF, type = "prob")[,"1"]
+
+```
+
+#Model Performance Measures
+```{r}
+
+#Creating Dataframe to store all performance stats
+
+Model_Perf = data.frame(matrix(NA,nrow=4,ncol=9))
+names(Model_Perf) = c("ModelName","Sample","KS","AUC","GINI","CONCORDANCE",
+                      "ACCURACY","SENSITIVITY","CLASS_ERROR")
+
+#CART Model Performance
+Model_Perf[1,1] = "CART"
+Model_Perf[2,1] = "CART"
+Model_Perf[1,2] = "Train"
+Model_Perf[2,2] = "Test"
+
+PredtrainDT = prediction(predictions = trainDT$Pred.Score, labels = trainDT$Personal.Loan)
+PerftrainDT = performance(prediction.obj = PredtrainDT, "tpr", "fpr")
+plot(PerftrainDT, main = "TrainDT ROC curve")
+
+PredtestDT = prediction(predictions = testDT$Pred.Score, labels = testDT$Personal.Loan)
+PerftestDT = performance(prediction.obj = PredtestDT, "tpr", "fpr")
+plot(PerftestDT, main = "TestDT ROC curve")
+
+
+#KS - Train & Test
+Model_Perf[1,3] = max(PerftrainDT@y.values[[1]] - PerftrainDT@x.values[[1]])
+Model_Perf[2,3] = max(PerftestDT@y.values[[1]] - PerftestDT@x.values[[1]])
+
+#AUC
+auctrainDT = performance(prediction.obj = PredtrainDT, "auc")
+Model_Perf[1,4] = as.numeric(auctrainDT@y.values[[1]])
+
+auctestDT = performance(prediction.obj = PredtestDT, "auc")
+Model_Perf[2,4] = as.numeric(auctestDT@y.values[[1]])
+
+#Gini
+Model_Perf[1,5] =ineq(trainDT$Pred.Score,"gini")
+Model_Perf[2,5] =ineq(testDT$Pred.Score,"gini")
+
+#Concordance
+Model_Perf[1,6] = Concordance(actuals = trainDT$Personal.Loan, predictedScores = trainDT$Pred.Score)[1]
+Model_Perf[2,6] = Concordance(actuals = testDT$Personal.Loan, predictedScores = testDT$Pred.Score)[1]
+
+#Confusion Matrix
+CART_train_CM = table(trainDT$Prediction, trainDT$Personal.Loan)
+CART_train_CM
+
+CART_test_CM = table(testDT$Prediction, testDT$Personal.Loan)
+CART_test_CM
+
+#Accuracy 
+Model_Perf[1,7] = (CART_train_CM[1,1] + CART_train_CM[2,2])/nrow(trainDT) 
+Model_Perf[2,7] = (CART_test_CM[1,1] + CART_test_CM[2,2])/nrow(testDT) 
+
+#Sensitivity
+Model_Perf[1,8] = (CART_train_CM[2,2])/(CART_train_CM[2,2] + CART_train_CM[1,2])
+Model_Perf[2,8] = (CART_test_CM[2,2])/(CART_test_CM[2,2] + CART_test_CM[1,2])
+
+#Error Rate
+Model_Perf[1,9] = (CART_train_CM[1,2] + CART_train_CM[2,1])/nrow(trainDT)
+Model_Perf[2,9] = (CART_test_CM[1,2] + CART_test_CM[2,1])/nrow(testDT)
+
+
+#Random Forest Performance 
+
+Model_Perf[3,1] = "Random Forest"
+Model_Perf[4,1] = "Random Forest"
+Model_Perf[3,2] = "Train"
+Model_Perf[4,2] = "Test"
+
+PredtrainRF = prediction(predictions = trainRF$Pred.Score, labels = trainRF$Personal.Loan)
+PerftrainRF = performance(prediction.obj = PredtrainRF, "tpr", "fpr")
+plot(PerftrainRF, main = "TrainRF ROC curve ")
+
+PredtestRF = prediction(predictions = testRF$Pred.Score, labels = testRF$Personal.Loan)
+PerftestRF = performance(prediction.obj = PredtestRF, "tpr", "fpr")
+plot(PerftestRF, main = "TestRF ROC curve")
+
+
+
+#KS - Train & Test
+Model_Perf[3,3] = max(PerftrainRF@y.values[[1]] - PerftrainRF@x.values[[1]])
+Model_Perf[4,3] = max(PerftestRF@y.values[[1]] - PerftestRF@x.values[[1]])
+
+#AUC
+auctrainRF = performance(prediction.obj = PredtrainRF, "auc")
+Model_Perf[3,4] = as.numeric(auctrainRF@y.values[[1]])
+
+auctestRF = performance(prediction.obj = PredtestRF, "auc")
+Model_Perf[4,4] = as.numeric(auctestRF@y.values[[1]])
+
+#Gini
+Model_Perf[3,5] =ineq(trainRF$Pred.Score,"gini")
+Model_Perf[4,5] =ineq(testRF$Pred.Score,"gini")
+
+#Concordance
+Model_Perf[3,6] = Concordance(actuals = trainRF$Personal.Loan, predictedScores = trainRF$Pred.Score)[1]
+Model_Perf[4,6] = Concordance(actuals = testRF$Personal.Loan, predictedScores = testRF$Pred.Score)[1]
+
+#Confusion Matrix
+
+RF_train_CM = table(trainRF$Prediction, trainRF$Personal.Loan)
+RF_train_CM
+
+RF_test_CM = table(testRF$Prediction, testRF$Personal.Loan)
+RF_test_CM
+
+#Accuracy 
+Model_Perf[3,7] = (RF_train_CM[1,1] + RF_train_CM[2,2])/nrow(trainRF) 
+Model_Perf[4,7] = (RF_test_CM[1,1] + RF_test_CM[2,2])/nrow(testRF) 
+
+#Sensitivity
+Model_Perf[3,8] = (RF_train_CM[2,2])/(RF_train_CM[2,2] + RF_train_CM[1,2])
+Model_Perf[4,8] = (RF_test_CM[2,2])/(RF_test_CM[2,2] + RF_test_CM[1,2])
+
+#Error Rate
+Model_Perf[3,9] = (RF_train_CM[1,2] + RF_train_CM[2,1])/nrow(trainRF)
+Model_Perf[4,9] = (RF_test_CM[1,2] + RF_test_CM[2,1])/nrow(testRF)
+
+
+print(Model_Perf, digits = 2)
+
+```
